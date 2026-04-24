@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<title>POST /rpc/login</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, 'Segoe UI', sans-serif; font-size: 13px;
+       background: #fff; color: #1a1a1a; }
+.pm-window { width: 960px; min-height: 560px; background: #fff;
+             border: 1px solid #d0d0d0; border-radius: 6px; overflow: hidden; }
+/* Top bar */
+.pm-topbar { background: #f05a28; height: 40px; display: flex; align-items: center;
+             padding: 0 14px; color: #fff; font-weight: 600; font-size: 14px; }
+.pm-topbar .logo { font-size: 16px; font-weight: 700; letter-spacing: 1px; margin-right: 20px; }
+/* Sidebar */
+.pm-layout { display: flex; height: calc(100% - 40px); }
+.pm-sidebar { width: 220px; background: #f9f9f9; border-right: 1px solid #e0e0e0;
+              padding: 10px 0; font-size: 12px; }
+.pm-sidebar .item { padding: 6px 16px; cursor: pointer; border-radius: 4px; margin: 1px 6px; }
+.pm-sidebar .item:hover { background: #efefef; }
+.pm-sidebar .item.active { background: #fff4f0; color: #f05a28; font-weight: 600; }
+.pm-sidebar .folder { padding: 6px 12px; font-weight: 600; color: #555;
+                      font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+                      margin-top: 8px; }
+.method { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px;
+          font-weight: 700; margin-right: 6px; }
+.GET    { color: #1e7e34; background: #d4edda; }
+.POST   { color: #856404; background: #fff3cd; }
+.PATCH  { color: #0c5460; background: #d1ecf1; }
+.DELETE { color: #721c24; background: #f8d7da; }
+/* Main area */
+.pm-main { flex: 1; display: flex; flex-direction: column; }
+.pm-req-bar { display: flex; align-items: center; padding: 10px 12px;
+              border-bottom: 1px solid #e0e0e0; gap: 8px; }
+.pm-req-bar .method-sel { background: #fff; border: 1px solid #d0d0d0;
+                           border-radius: 4px; padding: 6px 10px; font-weight: 700;
+                           min-width: 80px; text-align: center; }
+.pm-req-bar input { flex: 1; border: 1px solid #d0d0d0; border-radius: 4px;
+                    padding: 7px 10px; font-size: 13px; font-family: monospace; }
+.pm-req-bar .btn-send { background: #f05a28; color: #fff; border: none;
+                         border-radius: 4px; padding: 7px 18px; font-weight: 600;
+                         cursor: pointer; }
+/* Tabs */
+.pm-tabs { display: flex; border-bottom: 1px solid #e0e0e0; padding: 0 12px; }
+.pm-tabs .tab { padding: 8px 14px; cursor: pointer; font-size: 12px;
+                border-bottom: 2px solid transparent; color: #555; }
+.pm-tabs .tab.active { color: #f05a28; border-bottom-color: #f05a28; font-weight: 600; }
+/* Params table */
+.pm-params { padding: 12px; }
+.pm-params table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.pm-params th { text-align: left; padding: 5px 8px; color: #888;
+                border-bottom: 1px solid #e0e0e0; font-weight: 500; }
+.pm-params td { padding: 5px 8px; border-bottom: 1px solid #f0f0f0; }
+.pm-params td input { border: none; background: transparent; width: 100%;
+                       font-family: monospace; font-size: 12px; color: #333; }
+/* Response area */
+.pm-resp-header { display: flex; align-items: center; gap: 16px;
+                   padding: 8px 12px; border-bottom: 1px solid #e0e0e0;
+                   background: #fafafa; font-size: 12px; }
+.pm-resp-header .status-ok  { color: #1e7e34; font-weight: 700; }
+.pm-resp-header .status-201 { color: #856404; font-weight: 700; }
+.pm-resp-header .time       { color: #555; }
+.pm-resp-header .size       { color: #555; }
+.pm-resp-body { flex: 1; padding: 12px; overflow: auto; background: #fff;
+                font-family: 'Courier New', monospace; font-size: 12px;
+                line-height: 1.55; white-space: pre; }
+.json-key     { color: #a31515; }
+.json-str     { color: #0451a5; }
+.json-num     { color: #098658; }
+.json-bool    { color: #0000ff; }
+.json-null    { color: #999; }
+/* Status bar footer */
+.pm-footer { height: 26px; background: #f0f0f0; border-top: 1px solid #ddd;
+             display: flex; align-items: center; padding: 0 14px;
+             font-size: 11px; color: #888; }
+</style>
+</head><body>
+<div class="pm-window">
+  <div class="pm-topbar">
+    <span class="logo">Postman</span>
+    <span>Shop API &nbsp;›&nbsp; POST /rpc/login</span>
+  </div>
+  <div class="pm-layout">
+    <div class="pm-sidebar">
+      <div class="folder">01. Авторизация</div>
+      <div class="item"><span class="method POST">POST</span>POST /rpc/login</div>
+      <div class="folder">02. GET-запросы без параметров</div><div class="item "><span class="method GET">GET</span>GET /clients</div><div class="item "><span class="method GET">GET</span>GET /items</div><div class="item "><span class="method GET">GET</span>GET /order_status</div><div class="item "><span class="method GET">GET</span>GET /orders</div><div class="folder">03. GET с параметрами</div><div class="item "><span class="method GET">GET</span>id=eq.1</div><div class="item "><span class="method GET">GET</span>price=gt.40000</div><div class="item "><span class="method GET">GET</span>name=like.A*</div><div class="item "><span class="method GET">GET</span>select=name</div><div class="folder">04. CRUD</div><div class="item "><span class="method POST">POST</span>POST /clients</div><div class="item "><span class="method GET">GET</span>Проверка добавления</div><div class="item "><span class="method PATCH">PATCH</span>PATCH /clients</div><div class="item "><span class="method GET">GET</span>Проверка изменения</div><div class="item "><span class="method DELETE">DELETE</span>DELETE /clients</div><div class="item "><span class="method GET">GET</span>Проверка удаления</div>
+    </div>
+    <div class="pm-main">
+      <div class="pm-req-bar">
+        <div class="method-sel" style="color:#856404">POST</div>
+        <input value="{{base_url}}/rpc/login" readonly>
+        <button class="btn-send">Send</button>
+      </div>
+      <div class="pm-tabs"><div class="tab ">Params</div><div class="tab ">Authorization</div><div class="tab ">Headers</div><div class="tab active">Body</div><div class="tab ">Pre-request Script</div><div class="tab ">Tests</div><div class="tab ">Settings</div></div>
+      <div class="pm-params"><div style="padding:10px;font-family:monospace;font-size:12px;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;margin:10px">
+{
+  <span class="json-key">"email"</span>: <span class="json-str">"admin@shop.local"</span>,
+  <span class="json-key">"password"</span>: <span class="json-str">"password123"</span>
+}
+</div></div>
+      <div class="pm-tabs" style="background:#fafafa"><div class="tab active">Body</div><div class="tab ">Cookies</div><div class="tab ">Headers</div><div class="tab ">Test Results</div></div>
+      <div class="pm-resp-header">
+        <span class="status-ok">200 OK</span>
+        <span class="time">Time: 92 ms</span>
+        <span class="size">Size: 245 B B</span>
+      </div>
+      <div class="pm-resp-body">{
+  <span class="json-key">"token"</span>: <span class="json-str">"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoid2ViX3VzZXIiLCJleHAiOjE3NzY0MjQ2MDR9._XTkcW7Se2QMh63xzXS9JmBMg_3r8ap-ducAAlHSKeU"</span>
+}</div>
+    </div>
+  </div>
+  <div class="pm-footer">Postman v10.24 &nbsp;|&nbsp; Environment: Shop API Local</div>
+</div>
+</body></html>

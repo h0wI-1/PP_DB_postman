@@ -1,0 +1,41 @@
+<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+* { box-sizing:border-box; margin:0; padding:0; }
+body { background:#fff; font-family:-apple-system,'Segoe UI',sans-serif; font-size:13px; }
+.terminal { width:920px; border-radius:8px; overflow:hidden;
+            box-shadow:0 2px 12px rgba(0,0,0,.15); border:1px solid #ccc; }
+.term-bar { background:#e8e8e8; height:32px; display:flex; align-items:center;
+            padding:0 12px; gap:7px; }
+.dot { width:12px; height:12px; border-radius:50%; }
+.red { background:#ff5f57; } .yellow { background:#febc2e; } .green { background:#28c840; }
+.term-title { flex:1; text-align:center; font-size:12px; color:#666; margin-right:50px; }
+.term-body { background:#f8f8f8; color:#1a1a1a; font-family:'Courier New',monospace;
+             font-size:12.5px; line-height:1.55; padding:16px 18px; }
+.prompt { color:#007020; font-weight:700; }
+.out    { color:#1a1a1a; }
+.kw     { color:#00008b; }
+.tbl-head { color:#555; font-weight:700; }
+.sep    { color:#aaa; }
+</style></head><body>
+<div class="terminal">
+  <div class="term-bar">
+    <div class="dot red"></div><div class="dot yellow"></div><div class="dot green"></div>
+    <div class="term-title">psql — shop_db — 80×24</div>
+  </div>
+  <div class="term-body"><span class="prompt">shop_db=#</span> <span class="kw">SELECT * FROM items;</span>
+<pre class="out" style="font-family:inherit">+----+------------------------------+--------------+----------+-------+
+| id |             name             |   category   |  price   | stock |
++----+------------------------------+--------------+----------+-------+
+| 1  | Смартфон Apple iPhone 15     | Смартфоны    | 89990.0  | 15    |
+| 2  | Смартфон Samsung Galaxy S23  | Смартфоны    | 74990.0  | 20    |
+| 3  | Ноутбук Lenovo IdeaPad 3     | Ноутбуки     | 45990.0  | 10    |
+| 4  | Ноутбук Apple MacBook Air M2 | Ноутбуки     | 119990.0 | 7     |
+| 5  | Наушники Sony WH-1000XM5     | Аудиотехника | 32990.0  | 25    |
+| 6  | Телевизор LG 55" OLED        | Телевизоры   | 69990.0  | 5     |
+| 7  | Планшет Xiaomi Pad 6         | Планшеты     | 29990.0  | 18    |
+| 8  | Клавиатура Logitech MX Keys  | Периферия    | 11990.0  | 30    |
++----+------------------------------+--------------+----------+-------+
+(8 rows)</pre>
+<span class="prompt">shop_db=#</span> _</div>
+</div>
+</body></html>

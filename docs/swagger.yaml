@@ -1,0 +1,1210 @@
+openapi: 3.0.3
+
+info:
+  title: Shop API — Интернет-магазин техники
+  description: |
+    REST API интернет-магазина техники на базе **PostgreSQL + PostgREST**.
+
+    ## Архитектура
+    Сервер PostgREST автоматически превращает таблицы PostgreSQL в HTTP-эндпоинты.
+    Все запросы идут на `http://localhost:3000`.
+
+    ## Фильтрация (PostgREST Query Language)
+    PostgREST принимает условия фильтрации прямо в строке запроса:
+
+    | Синтаксис           | SQL-эквивалент            |
+    |---------------------|---------------------------|
+    | `field=eq.value`    | `WHERE field = value`     |
+    | `field=neq.value`   | `WHERE field != value`    |
+    | `field=gt.value`    | `WHERE field > value`     |
+    | `field=gte.value`   | `WHERE field >= value`    |
+    | `field=lt.value`    | `WHERE field < value`     |
+    | `field=lte.value`   | `WHERE field <= value`    |
+    | `field=like.A*`     | `WHERE field LIKE 'A%'`   |
+    | `field=ilike.a*`    | `WHERE field ILIKE 'a%'`  |
+    | `field=is.null`     | `WHERE field IS NULL`     |
+
+    ## Специальные параметры
+    - `select=col1,col2` — проекция полей (аналог `SELECT col1, col2`)
+    - `order=col.asc` / `order=col.desc` — сортировка
+    - `limit=N` — количество строк
+    - `offset=N` — смещение (пагинация)
+    - `select=id,clients(name),items(name)` — встроенный JOIN по внешнему ключу
+
+    ## Заголовок Prefer
+    При POST / PATCH / DELETE передавайте `Prefer: return=representation`,
+    чтобы получить изменённую запись в теле ответа.
+
+    ## Авторизация
+    - **Анонимная роль** `web_anon` — только GET (без токена).
+    - **Авторизованная роль** `web_user` — полный CRUD. Нужен JWT Bearer Token.
+    - Токен получается через `POST /rpc/login`.
+
+  version: "1.0.0"
+  contact:
+    name: Лабораторная работа 4
+    email: artemsolotonov@gmail.com
+
+servers:
+  - url: http://localhost:3000
+    description: Локальный сервер PostgREST
+
+tags:
+  - name: Auth
+    description: Получение JWT-токена
+  - name: Clients
+    description: Клиенты магазина
+  - name: Items
+    description: Товары
+  - name: OrderStatus
+    description: Справочник статусов заказа
+  - name: Orders
+    description: Заказы
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Security schemes
+# ─────────────────────────────────────────────────────────────────────────────
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        JWT-токен, полученный через `POST /rpc/login`.
+        Передаётся в заголовке: `Authorization: Bearer <token>`
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Reusable schemas
+  # ──────────────────────────────────────────────────────────────────────────
+  schemas:
+
+    Client:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Алексей Иванов
+        email:
+          type: string
+          format: email
+          example: a.ivanov@mail.ru
+        phone:
+          type: string
+          example: "+7-901-234-56-78"
+        city:
+          type: string
+          example: Москва
+        registered_at:
+          type: string
+          format: date-time
+          example: "2024-01-15T10:30:00"
+
+    ClientInput:
+      type: object
+      required: [name, email]
+      properties:
+        name:
+          type: string
+          example: Test User
+        email:
+          type: string
+          format: email
+          example: test.user@example.com
+        phone:
+          type: string
+          example: "+7-900-000-00-00"
+        city:
+          type: string
+          example: Тестоград
+
+    ClientPatch:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Test User Updated
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+          example: "+7-900-999-99-99"
+        city:
+          type: string
+          example: Москва
+
+    Item:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Ноутбук ASUS VivoBook 15
+        category:
+          type: string
+          example: Ноутбуки
+        price:
+          type: number
+          format: decimal
+          example: 54990.00
+        stock:
+          type: integer
+          example: 12
+
+    ItemInput:
+      type: object
+      required: [name, category, price]
+      properties:
+        name:
+          type: string
+          example: Новый товар
+        category:
+          type: string
+          example: Смартфоны
+        price:
+          type: number
+          format: decimal
+          example: 29999.99
+        stock:
+          type: integer
+          example: 5
+
+    ItemPatch:
+      type: object
+      properties:
+        name:
+          type: string
+        category:
+          type: string
+        price:
+          type: number
+          format: decimal
+          example: 27000.00
+        stock:
+          type: integer
+          example: 8
+
+    OrderStatus:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        code:
+          type: string
+          example: new
+        title:
+          type: string
+          example: Новый
+
+    OrderStatusInput:
+      type: object
+      required: [code, title]
+      properties:
+        code:
+          type: string
+          example: shipped
+        title:
+          type: string
+          example: Отправлен
+
+    Order:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        client_id:
+          type: integer
+          example: 1
+        item_id:
+          type: integer
+          example: 2
+        status_id:
+          type: integer
+          example: 1
+        quantity:
+          type: integer
+          example: 1
+        total:
+          type: number
+          format: decimal
+          example: 54990.00
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-02-01T14:00:00"
+
+    OrderInput:
+      type: object
+      required: [client_id, item_id, status_id, quantity, total]
+      properties:
+        client_id:
+          type: integer
+          example: 1
+        item_id:
+          type: integer
+          example: 2
+        status_id:
+          type: integer
+          example: 1
+        quantity:
+          type: integer
+          example: 1
+        total:
+          type: number
+          format: decimal
+          example: 54990.00
+
+    OrderPatch:
+      type: object
+      properties:
+        status_id:
+          type: integer
+          example: 2
+        quantity:
+          type: integer
+        total:
+          type: number
+          format: decimal
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@shop.local
+        password:
+          type: string
+          example: password123
+
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+          description: JWT Bearer Token (действует 1 час)
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          example: PGRST301
+        details:
+          type: string
+          nullable: true
+        hint:
+          type: string
+          nullable: true
+        message:
+          type: string
+          example: JWT expired
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Reusable parameters
+  # ──────────────────────────────────────────────────────────────────────────
+  parameters:
+
+    SelectParam:
+      name: select
+      in: query
+      description: |
+        Список полей через запятую. Например: `select=id,name`.
+        Поддерживает встроенный JOIN: `select=id,clients(name)`.
+      schema:
+        type: string
+      example: id,name
+
+    OrderParam:
+      name: order
+      in: query
+      description: |
+        Сортировка. Формат: `order=field.asc` или `order=field.desc`.
+      schema:
+        type: string
+      example: price.asc
+
+    LimitParam:
+      name: limit
+      in: query
+      description: Максимальное количество строк в ответе.
+      schema:
+        type: integer
+      example: 10
+
+    OffsetParam:
+      name: offset
+      in: query
+      description: Смещение (для пагинации).
+      schema:
+        type: integer
+      example: 0
+
+    PreferHeader:
+      name: Prefer
+      in: header
+      description: |
+        Управляет форматом ответа.
+        `return=representation` — вернуть созданную/изменённую запись.
+        `return=minimal` — ничего не возвращать (экономия трафика).
+      schema:
+        type: string
+        enum: [return=representation, return=minimal]
+      example: return=representation
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Paths
+# ─────────────────────────────────────────────────────────────────────────────
+paths:
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # AUTH
+  # ══════════════════════════════════════════════════════════════════════════
+  /rpc/login:
+    post:
+      tags: [Auth]
+      summary: Получить JWT-токен
+      description: |
+        Вызывает функцию `public.login(email, password)` в PostgreSQL.
+        Возвращает JWT, который нужно передавать в заголовке
+        `Authorization: Bearer <token>` для защищённых запросов.
+
+        **Права:** доступно без токена (роль `web_anon`).
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+            example:
+              email: admin@shop.local
+              password: password123
+      parameters:
+        - name: Accept
+          in: header
+          description: Используйте `application/vnd.pgrst.object+json` для одиночного объекта.
+          schema:
+            type: string
+          example: application/vnd.pgrst.object+json
+      responses:
+        '200':
+          description: Токен успешно выдан
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoid2ViX3VzZXIiLCJlbWFpbCI6ImFkbWluQHNob3AubG9jYWwiLCJleHAiOjE3MDAwMDAwMDB9.signature
+        '401':
+          description: Неверный email или пароль
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              example:
+                code: invalid_password
+                message: Invalid email or password
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # CLIENTS
+  # ══════════════════════════════════════════════════════════════════════════
+  /clients:
+    get:
+      tags: [Clients]
+      summary: Список клиентов
+      description: |
+        Возвращает массив клиентов. Поддерживает фильтрацию, проекцию и сортировку.
+
+        **Примеры запросов:**
+        - `GET /clients` — все клиенты
+        - `GET /clients?id=eq.1` — клиент с id = 1
+        - `GET /clients?name=like.А*` — клиенты, чьё имя начинается с «А»
+        - `GET /clients?select=name` — только поле name
+        - `GET /clients?city=eq.Москва&order=name.asc` — клиенты из Москвы, по алфавиту
+
+        **Права:** `web_anon` (без токена).
+      operationId: getClients
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SelectParam'
+        - $ref: '#/components/parameters/OrderParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - name: id
+          in: query
+          description: |
+            Фильтр по ID. Формат PostgREST: `id=eq.1`, `id=gt.5`.
+          schema:
+            type: string
+          example: eq.1
+        - name: name
+          in: query
+          description: |
+            Фильтр по имени. Пример: `name=like.А*` (LIKE 'А%').
+          schema:
+            type: string
+          example: like.А*
+        - name: email
+          in: query
+          description: 'Фильтр по email. Пример: `email=eq.user@example.com`.'
+          schema:
+            type: string
+        - name: city
+          in: query
+          description: 'Фильтр по городу. Пример: `city=eq.Москва`.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Массив клиентов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+              examples:
+                all:
+                  summary: Все клиенты
+                  value:
+                    - id: 1
+                      name: Алексей Иванов
+                      email: a.ivanov@mail.ru
+                      phone: "+7-901-234-56-78"
+                      city: Москва
+                      registered_at: "2024-01-15T10:30:00"
+                    - id: 2
+                      name: Белла Смирнова
+                      email: b.smirnova@yandex.ru
+                      phone: "+7-902-345-67-89"
+                      city: Санкт-Петербург
+                      registered_at: "2024-01-20T09:00:00"
+                byId:
+                  summary: Клиент id=1
+                  value:
+                    - id: 1
+                      name: Алексей Иванов
+                      email: a.ivanov@mail.ru
+                      phone: "+7-901-234-56-78"
+                      city: Москва
+                      registered_at: "2024-01-15T10:30:00"
+                selectName:
+                  summary: Только поле name
+                  value:
+                    - name: Алексей Иванов
+                    - name: Белла Смирнова
+
+    post:
+      tags: [Clients]
+      summary: Добавить клиента
+      description: |
+        Создаёт новую запись в таблице `clients`.
+
+        Передайте заголовок `Prefer: return=representation`,
+        чтобы получить созданную запись (включая сгенерированный `id`) в ответе.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: createClient
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientInput'
+            example:
+              name: Test User
+              email: test.user@example.com
+              phone: "+7-900-000-00-00"
+              city: Тестоград
+      responses:
+        '201':
+          description: Клиент создан
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+              example:
+                - id: 11
+                  name: Test User
+                  email: test.user@example.com
+                  phone: "+7-900-000-00-00"
+                  city: Тестоград
+                  registered_at: "2024-04-23T12:00:00"
+        '401':
+          description: Токен отсутствует или недействителен
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Email уже существует (нарушение уникальности)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    patch:
+      tags: [Clients]
+      summary: Изменить клиентов (по фильтру)
+      description: |
+        Частичное обновление записей, соответствующих фильтру в строке запроса.
+
+        **Обязательно** передайте хотя бы один параметр фильтрации,
+        иначе PostgREST обновит все строки таблицы.
+
+        Пример: `PATCH /clients?id=eq.1` — обновить клиента с id = 1.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: updateClients
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          description: 'Фильтр по ID. Пример: `id=eq.1`.'
+          schema:
+            type: string
+          example: eq.1
+        - name: email
+          in: query
+          description: Фильтр по email.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientPatch'
+            example:
+              phone: "+7-900-999-99-99"
+              city: Москва
+      responses:
+        '200':
+          description: 'Обновлённая запись (при `Prefer: return=representation`)'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+              example:
+                - id: 11
+                  name: Test User
+                  email: test.user@example.com
+                  phone: "+7-900-999-99-99"
+                  city: Москва
+                  registered_at: "2024-04-23T12:00:00"
+        '204':
+          description: Обновление выполнено, тело пустое (без Prefer-заголовка)
+        '401':
+          description: Нет авторизации
+
+    delete:
+      tags: [Clients]
+      summary: Удалить клиентов (по фильтру)
+      description: |
+        Удаляет записи, соответствующие фильтру.
+
+        **Обязательно** передайте фильтр — иначе будут удалены все записи.
+
+        Пример: `DELETE /clients?id=eq.11` — удалить клиента с id = 11.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: deleteClients
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          description: 'Фильтр по ID. Пример: `id=eq.11`.'
+          schema:
+            type: string
+          example: eq.11
+      responses:
+        '200':
+          description: 'Удалённые записи (при `Prefer: return=representation`)'
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Client'
+              example:
+                - id: 11
+                  name: Test User
+                  email: test.user@example.com
+                  phone: "+7-900-999-99-99"
+                  city: Москва
+                  registered_at: "2024-04-23T12:00:00"
+        '204':
+          description: Удаление выполнено, тело пустое
+        '401':
+          description: Нет авторизации
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ITEMS
+  # ══════════════════════════════════════════════════════════════════════════
+  /items:
+    get:
+      tags: [Items]
+      summary: Список товаров
+      description: |
+        Возвращает массив товаров. Поддерживает фильтрацию по цене, категории и т.д.
+
+        **Примеры запросов:**
+        - `GET /items` — все товары
+        - `GET /items?price=gt.40000` — дороже 40 000 ₽
+        - `GET /items?price=lt.50000&order=price.asc` — дешевле 50 000 ₽, по возрастанию
+        - `GET /items?category=eq.Ноутбуки` — только ноутбуки
+        - `GET /items?stock=gt.0&order=price.desc` — в наличии, дорогие первыми
+
+        **Права:** `web_anon` (без токена).
+      operationId: getItems
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SelectParam'
+        - $ref: '#/components/parameters/OrderParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - name: id
+          in: query
+          description: 'Фильтр по ID. Пример: `id=eq.3`.'
+          schema:
+            type: string
+        - name: price
+          in: query
+          description: |
+            Фильтр по цене.
+            Примеры: `price=gt.40000`, `price=lt.50000`, `price=gte.10000`.
+          schema:
+            type: string
+          example: gt.40000
+        - name: category
+          in: query
+          description: 'Фильтр по категории. Пример: `category=eq.Ноутбуки`.'
+          schema:
+            type: string
+        - name: stock
+          in: query
+          description: 'Фильтр по остатку. Пример: `stock=gt.0` — только в наличии.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Массив товаров
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+              examples:
+                all:
+                  summary: Все товары
+                  value:
+                    - id: 1
+                      name: Ноутбук ASUS VivoBook 15
+                      category: Ноутбуки
+                      price: 54990.00
+                      stock: 12
+                    - id: 2
+                      name: Смартфон Samsung Galaxy A54
+                      category: Смартфоны
+                      price: 32990.00
+                      stock: 25
+                expensive:
+                  summary: Товары дороже 40000
+                  value:
+                    - id: 1
+                      name: Ноутбук ASUS VivoBook 15
+                      category: Ноутбуки
+                      price: 54990.00
+                      stock: 12
+                    - id: 4
+                      name: Телевизор LG 50"
+                      category: Телевизоры
+                      price: 49990.00
+                      stock: 7
+
+    post:
+      tags: [Items]
+      summary: Добавить товар
+      description: |
+        Создаёт новую запись в таблице `items`.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: createItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemInput'
+            example:
+              name: Новый товар
+              category: Смартфоны
+              price: 29999.99
+              stock: 5
+      responses:
+        '201':
+          description: Товар создан
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '401':
+          description: Нет авторизации
+
+    patch:
+      tags: [Items]
+      summary: Изменить товар (по фильтру)
+      description: |
+        Частичное обновление товаров. Передайте фильтр в параметрах запроса.
+
+        Пример: `PATCH /items?id=eq.1` — обновить товар с id = 1.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: updateItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          description: 'Фильтр по ID. Пример: `id=eq.1`.'
+          schema:
+            type: string
+          example: eq.1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ItemPatch'
+            example:
+              price: 27000.00
+              stock: 8
+      responses:
+        '200':
+          description: Обновлённая запись
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '204':
+          description: Обновлено без тела ответа
+        '401':
+          description: Нет авторизации
+
+    delete:
+      tags: [Items]
+      summary: Удалить товар (по фильтру)
+      description: |
+        Удаляет товары по фильтру.
+
+        **Примечание:** нельзя удалить товар, на который ссылается заказ
+        (ограничение `ON DELETE RESTRICT` в таблице `orders`).
+
+        **Права:** требует JWT (`web_user`).
+      operationId: deleteItem
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          description: 'Фильтр по ID. Пример: `id=eq.5`.'
+          schema:
+            type: string
+          example: eq.5
+      responses:
+        '200':
+          description: Удалённые записи
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Item'
+        '204':
+          description: Удалено без тела ответа
+        '401':
+          description: Нет авторизации
+        '409':
+          description: Нарушение внешнего ключа (товар используется в заказах)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ORDER STATUS
+  # ══════════════════════════════════════════════════════════════════════════
+  /order_status:
+    get:
+      tags: [OrderStatus]
+      summary: Список статусов заказа
+      description: |
+        Возвращает справочник статусов. Таблица содержит 5 записей:
+        `new`, `processing`, `shipped`, `delivered`, `cancelled`.
+
+        **Права:** `web_anon` (без токена).
+      operationId: getOrderStatuses
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SelectParam'
+        - $ref: '#/components/parameters/OrderParam'
+        - name: id
+          in: query
+          description: 'Фильтр по ID. Пример: `id=eq.1`.'
+          schema:
+            type: string
+        - name: code
+          in: query
+          description: 'Фильтр по коду. Пример: `code=eq.new`.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Массив статусов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderStatus'
+              example:
+                - id: 1
+                  code: new
+                  title: Новый
+                - id: 2
+                  code: processing
+                  title: В обработке
+                - id: 3
+                  code: shipped
+                  title: Отправлен
+                - id: 4
+                  code: delivered
+                  title: Доставлен
+                - id: 5
+                  code: cancelled
+                  title: Отменён
+
+    post:
+      tags: [OrderStatus]
+      summary: Добавить статус
+      description: |
+        Добавляет новый статус в справочник.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: createOrderStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusInput'
+      responses:
+        '201':
+          description: Статус создан
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderStatus'
+        '401':
+          description: Нет авторизации
+
+    patch:
+      tags: [OrderStatus]
+      summary: Изменить статус (по фильтру)
+      operationId: updateOrderStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: eq.5
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderStatusInput'
+      responses:
+        '200':
+          description: Обновлённый статус
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderStatus'
+        '401':
+          description: Нет авторизации
+
+    delete:
+      tags: [OrderStatus]
+      summary: Удалить статус (по фильтру)
+      operationId: deleteOrderStatus
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          schema:
+            type: string
+          example: eq.5
+      responses:
+        '200':
+          description: Удалённый статус
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderStatus'
+        '401':
+          description: Нет авторизации
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # ORDERS
+  # ══════════════════════════════════════════════════════════════════════════
+  /orders:
+    get:
+      tags: [Orders]
+      summary: Список заказов
+      description: |
+        Возвращает массив заказов. Поддерживает фильтрацию и встроенный JOIN.
+
+        **Примеры запросов:**
+        - `GET /orders` — все заказы
+        - `GET /orders?client_id=eq.1` — заказы клиента с id = 1
+        - `GET /orders?status_id=eq.1` — только новые заказы
+        - `GET /orders?select=id,total,clients(name),items(name)` — JOIN с клиентами и товарами
+        - `GET /orders?total=gt.50000&order=created_at.desc` — дорогие, свежие первыми
+
+        **Права:** `web_anon` (без токена).
+      operationId: getOrders
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/SelectParam'
+        - $ref: '#/components/parameters/OrderParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - $ref: '#/components/parameters/OffsetParam'
+        - name: id
+          in: query
+          description: Фильтр по ID заказа.
+          schema:
+            type: string
+        - name: client_id
+          in: query
+          description: 'Фильтр по ID клиента. Пример: `client_id=eq.1`.'
+          schema:
+            type: string
+        - name: item_id
+          in: query
+          description: 'Фильтр по ID товара. Пример: `item_id=eq.2`.'
+          schema:
+            type: string
+        - name: status_id
+          in: query
+          description: 'Фильтр по статусу. Пример: `status_id=eq.1`.'
+          schema:
+            type: string
+        - name: total
+          in: query
+          description: 'Фильтр по сумме. Пример: `total=gt.50000`.'
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Массив заказов
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+              examples:
+                all:
+                  summary: Все заказы
+                  value:
+                    - id: 1
+                      client_id: 1
+                      item_id: 1
+                      status_id: 4
+                      quantity: 1
+                      total: 54990.00
+                      created_at: "2024-02-01T14:00:00"
+                withJoin:
+                  summary: С JOIN через select
+                  value:
+                    - id: 1
+                      total: 54990.00
+                      clients:
+                        name: Алексей Иванов
+                      items:
+                        name: Ноутбук ASUS VivoBook 15
+
+    post:
+      tags: [Orders]
+      summary: Создать заказ
+      description: |
+        Добавляет новую запись в таблицу `orders`.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: createOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderInput'
+            example:
+              client_id: 1
+              item_id: 2
+              status_id: 1
+              quantity: 2
+              total: 65980.00
+      responses:
+        '201':
+          description: Заказ создан
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          description: Нет авторизации
+
+    patch:
+      tags: [Orders]
+      summary: Изменить заказ (по фильтру)
+      description: |
+        Частичное обновление заказа. Чаще всего используется для смены статуса.
+
+        Пример: `PATCH /orders?id=eq.1` + тело `{"status_id": 2}`.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: updateOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          description: Фильтр по ID заказа.
+          schema:
+            type: string
+          example: eq.1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OrderPatch'
+            example:
+              status_id: 2
+      responses:
+        '200':
+          description: Обновлённый заказ
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '401':
+          description: Нет авторизации
+
+    delete:
+      tags: [Orders]
+      summary: Удалить заказ (по фильтру)
+      description: |
+        Удаляет заказы по фильтру.
+
+        Пример: `DELETE /orders?id=eq.10`.
+
+        **Права:** требует JWT (`web_user`).
+      operationId: deleteOrder
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/PreferHeader'
+        - name: id
+          in: query
+          required: true
+          description: Фильтр по ID заказа.
+          schema:
+            type: string
+          example: eq.10
+      responses:
+        '200':
+          description: Удалённые заказы
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Order'
+        '204':
+          description: Удалено без тела
+        '401':
+          description: Нет авторизации
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Global security (применяется, если в операции не переопределено)
+# ─────────────────────────────────────────────────────────────────────────────
+security:
+  - BearerAuth: []
